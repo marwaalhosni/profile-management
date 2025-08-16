@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Profile</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 0; }
+    .container { max-width: 640px; margin: 40px auto; background: #fff; padding: 20px;
+                 border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h2 { text-align: center; color: #333; margin-top: 0; }
+    label { display: block; margin-top: 14px; font-weight: bold; font-size: 14px; }
+    input, select { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    .work-type { margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .work-type label { font-weight: normal; }
+    button { margin-top: 18px; width: 100%; padding: 12px; font-size: 15px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .error { color: red; font-size: 12px; min-height: 16px; }
+    .hint { font-size: 12px; color: #666; margin-top: 4px; }
+    @media (max-width: 480px) { .container { margin: 10px; padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Profile Settings</h2>
+    <form id="profileForm" novalidate>
+      <label for="jobTitle">Job Title</label>
+      <input type="text" id="jobTitle" placeholder="e.g., Frontend Developer" />
+      <div id="jobError" class="error"></div>
+
+      <label for="location">Location</label>
+      <input type="text" id="location" placeholder="e.g., Muscat" />
+      <div id="locationError" class="error"></div>
+
+      <label for="salary">Expected Salary</label>
+      <input type="number" id="salary" min="0" placeholder="e.g., 1200" />
+      <div id="salaryError" class="error"></div>
+
+      <label>Work Type</label>
+      <div class="work-type">
+        <label><input type="radio" name="workType" value="Full-time" /> Full-time</label>
+        <label><input type="radio" name="workType" value="Part-time" /> Part-time</label>
+        <label><input type="radio" name="workType" value="Remote" /> Remote</label>
+        <label><input type="radio" name="workType" value="Hybrid" /> Hybrid</label>
+      </div>
+      <div id="workTypeError" class="error"></div>
+
+      <button type="submit">Save Profile</button>
+      <div class="hint">Tip: Make sure your server is running on http://localhost:5000</div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("profileForm");
+
+    // On page load: fetch and prefill values
+    window.addEventListener("DOMContentLoaded", async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/profile");
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        const data = await res.json();
+
+        document.getElementById("jobTitle").value = data.jobTitle || "";
+        document.getElementById("location").value = data.location || "";
+        document.getElementById("salary").value = data.salary ?? "";
+
+        if (data.workType) {
+          const radio = document.querySelector(`input[name="workType"][value="${data.workType}"]`);
+          if (radio) radio.checked = true;
+        }
+      } catch (err) {
+        console.warn("Could not load profile. Is the server running?", err);
+      }
+    });
+
+    // Submit handler with simple validation
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const job = document.getElementById("jobTitle").value.trim();
+      const loc = document.getElementById("location").value.trim();
+      const sal = document.getElementById("salary").value;
+      const work = document.querySelector('input[name="workType"]:checked');
+
+      // reset errors
+      document.getElementById("jobError").textContent = "";
+      document.getElementById("locationError").textContent = "";
+      document.getElementById("salaryError").textContent = "";
+      document.getElementById("workTypeError").textContent = "";
+
+      let ok = true;
+      if (!job) { document.getElementById("jobError").textContent = "Job Title is required"; ok = false; }
+      if (!loc) { document.getElementById("locationError").textContent = "Location is required"; ok = false; }
+      if (!sal || Number(sal) <= 0) { document.getElementById("salaryError").textContent = "Enter a valid salary"; ok = false; }
+      if (!work) { document.getElementById("workTypeError").textContent = "Select a work type"; ok = false; }
+      if (!ok) return;
+
+      const payload = { jobTitle: job, location: loc, salary: Number(sal), workType: work.value };
+
+      try {
+        const res = await fetch("http://localhost:5000/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Unknown error" }));
+          alert("Error: " + (err.message || "Failed to save"));
+          return;
+        }
+
+        alert("✅ Profile saved successfully!");
+      } catch (err) {
+        console.error(err);
+        alert("Network error. Is the server running?");
+      }
+    });
+  </script>
+</body>
+</html>
